@@ -17,6 +17,7 @@ if (process.env.NODE_ENV !== "production") {
 app.use("/api/v1/bootcamps", bootcamps);
 
 app.use(errorHandler);
+
 connectDB();
 
 const PORT = process.env.PORT || 5000;
