@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const ErrorResponse = require("../utils/errorResponse");
 const asyncHandler = require("../middleware/async");
 const User = require("../models/User");
@@ -54,6 +55,43 @@ exports.getMe = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc      Update details of User
+// @route     PUT  /api/v1/auth/updatedetails
+// access     Private
+
+exports.updateDetails = asyncHandler(async (req, res, next) => {
+  const fieldsToUpdate = {
+    name: req.body.name,
+    email: req.body.email,
+  };
+  const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
+    new: true,
+    runValidators: true,
+  });
+
+  res.status(200).json({
+    success: true,
+    data: user,
+  });
+});
+
+// @desc      Update Password
+// @route     PUT  /api/v1/auth/updatepassword
+// access     Private
+
+exports.updatePassword = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.user.id).select("+password");
+
+  if (!(await user.matchPassword(req.body.currentPassword))) {
+    return next(new ErrorResponse(`Password is incorrect`, 401));
+  }
+
+  user.password = req.body.newPassword;
+  await user.save();
+
+  sendTokenResponse(user, 200, res);
+});
+
 // @desc      Forgot password
 // @route     POST  /api/v1/auth/forgotpassword
 // access     Public
@@ -91,6 +129,33 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
     await user.save({ validatedBeforeSave: false });
     return next(new ErrorResponse("Email could not be sent", 500));
   }
+});
+
+// @desc      Reset Password
+// @route     POST  /api/v1/auth/resetpassword/:resettoken
+// access     Public
+
+exports.resetPassword = asyncHandler(async (req, res, next) => {
+  const resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(req.params.resettoken)
+    .digest("hex");
+
+  const user = await User.findOne({
+    resetPasswordToken,
+    resetPasswordExpire: { $gt: Date.now() },
+  });
+
+  if (!user) return next(new ErrorResponse(`Invalid token`, 400));
+
+  user.password = req.body.password;
+
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+
+  await user.save();
+
+  sendTokenResponse(user, 200, res);
 });
 
 const sendTokenResponse = (user, statusCode, res) => {

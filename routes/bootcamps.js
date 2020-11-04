@@ -16,10 +16,12 @@ const advancedResults = require("../middleware/advancedResults");
 const Bootcamp = require("../models/Bootcamp");
 
 const courseRouter = require("./courses");
+const reviewRouter = require("./reviews");
 
 router.route("/radius/:zipcode/:distance").get(getBootcampsInRadius);
 
 router.use("/:bootcampId/courses", courseRouter);
+router.use("/:bootcampId/reviews", reviewRouter);
 
 router
   .route("/")
